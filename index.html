@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Playlist Player</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Playlist Player</h1>
+    </header>
+    <main>
+      <div class="input-section">
+        <input type="text" id="playlist-input" placeholder="Ingresa el nombre de la playlist">
+        <button id="play-btn">Reproducir Playlist</button>
+      </div>
+      <div class="player-section">
+        <span id="current-song">Ninguna canción reproduciendo</span>
+        <audio id="audio-player" controls></audio>
+        <div class="controls">
+          <button id="next-btn" disabled>Siguiente</button>
+          <button id="shuffle-btn" disabled>Mezclar</button>
+        </div>
+      </div>
+      <div class="content-section">
+        <div class="song-list-container">
+          <div id="results" class="song-list"></div>
+        </div>
+        <div class="media-section">
+          <div id="media-content">
+            <img id="album-cover" src="https://placehold.co/300x300?text=Sin+Portada" alt="Portada de la canción">
+            <h3 id="media-title">Selecciona una canción</h3>
+            <p id="media-artists">Artistas</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
