@@ -6,43 +6,84 @@ const os = require('os');
 const axios = require('axios');
 
 const tempDir = path.join(os.tmpdir(), 'spotify-playlist-player');
+const binDir = path.join(__dirname, 'bin');
+let ytDlpBinary, ffmpegBinary;
 
-// Crear directorio temporal si no existe
+// Crear directorio temporal y bin si no existen
 (async () => {
   try {
     await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
   } catch (e) {
-    console.error('Error creando directorio temporal:', e);
+    console.error('Error creando directorios:', e);
   }
 })();
 
-// Determinar los binarios según el sistema operativo
-const platform = os.platform();
-let ytDlpBinary, ffmpegBinary;
-
-if (platform === 'win32') {
-  // Windows
-  ytDlpBinary = path.join(__dirname, 'bin', 'yt-dlp.exe');
-  ffmpegBinary = path.join(__dirname, 'bin', 'ffmpeg.exe');
-} else if (platform === 'darwin') {
-  // macOS
-  ytDlpBinary = path.join(__dirname, 'bin', 'yt-dlp_macos');
-  ffmpegBinary = path.join(__dirname, 'bin', 'ffmpeg_macos');
-} else {
-  // Linux (y otros sistemas Unix-like)
-  ytDlpBinary = path.join(__dirname, 'bin', 'yt-dlp');
-  ffmpegBinary = path.join(__dirname, 'bin', 'ffmpeg');
+// Descargar un archivo desde una URL
+async function downloadFile(url, dest) {
+  console.log(`Descargando ${url} a ${dest}...`);
+  const response = await axios({
+    url,
+    method: 'GET',
+    responseType: 'stream',
+  });
+  const writer = require('fs').createWriteStream(dest);
+  response.data.pipe(writer);
+  return new Promise((resolve, reject) => {
+    writer.on('finish', () => {
+      console.log(`Descarga completada: ${dest}`);
+      resolve();
+    });
+    writer.on('error', (err) => {
+      console.error(`Error al descargar ${url}:`, err);
+      reject(err);
+    });
+  });
 }
 
-// Verificar que los binarios existan
+// Configurar los binarios según el sistema operativo
 (async () => {
   try {
-    await fs.access(ytDlpBinary);
-    await fs.access(ffmpegBinary);
-    console.log('Binarios de yt-dlp y ffmpeg encontrados:', ytDlpBinary, ffmpegBinary);
+    const platform = os.platform();
+    if (platform === 'win32') {
+      ytDlpBinary = path.join(binDir, 'yt-dlp.exe');
+      ffmpegBinary = path.join(binDir, 'ffmpeg.exe');
+      if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp.exe', ytDlpBinary);
+      }
+      if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg.exe', ffmpegBinary);
+      }
+    } else if (platform === 'darwin') {
+      ytDlpBinary = path.join(binDir, 'yt-dlp_macos');
+      ffmpegBinary = path.join(binDir, 'ffmpeg_macos');
+      if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp_macos', ytDlpBinary);
+      }
+      if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg_macos', ffmpegBinary);
+      }
+    } else {
+      ytDlpBinary = path.join(binDir, 'yt-dlp');
+      ffmpegBinary = path.join(binDir, 'ffmpeg');
+      if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp', ytDlpBinary);
+      }
+      if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
+        await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg', ffmpegBinary);
+      }
+    }
+
+    // Hacer los binarios ejecutables en Linux/macOS
+    if (platform !== 'win32') {
+      await fs.chmod(ytDlpBinary, '755');
+      await fs.chmod(ffmpegBinary, '755');
+    }
+
+    console.log('Binarios de yt-dlp y ffmpeg configurados:', ytDlpBinary, ffmpegBinary);
   } catch (e) {
-    console.error('Error: No se encontraron los binarios de yt-dlp o ffmpeg en la carpeta bin:', e.message);
-    process.exit(1); // Salir si los binarios no están disponibles
+    console.error('Error al configurar los binarios:', e);
+    process.exit(1);
   }
 })();
 
