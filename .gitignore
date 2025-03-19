@@ -1,0 +1,23 @@
+# Ignorar node_modules
+node_modules/
+
+# Ignorar archivos generados por npm
+package-lock.json
+
+# Ignorar la carpeta dist
+dist/
+
+# Ignorar la carpeta bin
+bin/
+
+# Ignorar archivos temporales
+*.log
+*.tmp
+
+# Ignorar archivos de caché de Electron
+.cache/
+*.cache
+
+# Ignorar archivos de configuración de editores
+.vscode/
+.idea/
