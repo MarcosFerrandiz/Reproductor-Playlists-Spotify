@@ -51,3 +51,13 @@ cd Reproductor-Playlists-Spotify
 4. En la carpeta del proyecto, ejecuta:
   ```bash
 npm install
+```
+
+---
+
+## 👍 Autoevaluación
+
+Creo que una nota justa sería un 7,5 o 8, creo que me he esforzado bastante y usado cosas que no he tocado en mi vida, creo que el funcionamiento es bastante util, ya que es como una solucion para no tener que pagar el Spotify premium. El código creo que esta bastante bien y visualmente la aplicacion es bastante intuitiva.
+
+Creo que habría cosas que se podrían mejorar, como por ejemplo el tiempo de descarga de las canciones, ya que tarda bastante en descargarse, aparte también para mejorar es el poder tener soporte para macOS y Linux, ya que por ahora solo esta para Windows, porque no se como funciona macOS ni Linux, y no lo puedo probar.
+
