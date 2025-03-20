@@ -1,11 +1,10 @@
 const puppeteer = require('puppeteer');
-const { spawn } = require('child_process'); // Usaremos child_process.spawn
+const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
 const https = require('https');
 
-// Determinar si la aplicación está empaquetada
 const isPackaged = process.env.NODE_ENV === 'production' || (typeof process !== 'undefined' && process.resourcesPath && process.resourcesPath.includes('app.asar'));
 
 // Definir la carpeta donde se guardarán los binarios (ruta estática)
@@ -13,10 +12,8 @@ const binDir = path.join(os.homedir(), '.spotify-playlist-player', 'bin');
 const tempDir = path.join(os.tmpdir(), 'spotify-playlist-player');
 let ytDlpBinary, ffmpegBinary;
 
-// Variable para manejar el "lock" de yt-dlp
 let isYtDlpRunning = false;
 
-// Crear directorio temporal y bin si no existen
 (async () => {
   try {
     await fs.mkdir(tempDir, { recursive: true });
@@ -27,7 +24,6 @@ let isYtDlpRunning = false;
   }
 })();
 
-// Descargar un archivo desde una URL usando https
 async function downloadFile(url, dest) {
   console.log(`Iniciando descarga de ${url} a ${dest}...`);
   return new Promise((resolve, reject) => {
@@ -56,14 +52,14 @@ async function downloadFile(url, dest) {
 
       file.on('error', (err) => {
         console.error(`Error al escribir el archivo ${dest}:`, err);
-        require('fs').unlink(dest, () => {}); // Eliminar el archivo si hay un error
+        require('fs').unlink(dest, () => {}); 
         reject(err);
       });
     });
 
     request.on('error', (err) => {
       console.error(`Error en la solicitud de descarga de ${url}:`, err.message);
-      require('fs').unlink(dest, () => {}); // Eliminar el archivo si hay un error
+      require('fs').unlink(dest, () => {});
       reject(err);
     });
 
@@ -75,7 +71,6 @@ async function downloadFile(url, dest) {
   });
 }
 
-// Configurar los binarios (solo para Windows, ya que solo tienes binarios .exe)
 (async () => {
   try {
     const platform = os.platform();
@@ -92,11 +87,9 @@ async function downloadFile(url, dest) {
       return;
     }
 
-    // Configurar binarios para Windows
     ytDlpBinary = path.join(binDir, 'yt-dlp.exe');
     ffmpegBinary = path.join(binDir, 'ffmpeg.exe');
 
-    // Verificar si yt-dlp.exe existe
     if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
       console.log('yt-dlp.exe no encontrado, descargando...');
       await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp.exe', ytDlpBinary);
@@ -104,7 +97,6 @@ async function downloadFile(url, dest) {
       console.log('yt-dlp.exe ya existe:', ytDlpBinary);
     }
 
-    // Verificar si ffmpeg.exe existe
     if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
       console.log('ffmpeg.exe no encontrado, descargando...');
       await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg.exe', ffmpegBinary);
@@ -112,25 +104,23 @@ async function downloadFile(url, dest) {
       console.log('ffmpeg.exe ya existe:', ffmpegBinary);
     }
 
-    // Verificar que los archivos sean válidos (tengan un tamaño mayor a 0)
     const ytDlpStats = await fs.stat(ytDlpBinary);
     if (ytDlpStats.size === 0) {
       console.log('yt-dlp.exe está vacío, re-descargando...');
-      await fs.unlink(ytDlpBinary); // Eliminar el archivo vacío
+      await fs.unlink(ytDlpBinary); 
       await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp.exe', ytDlpBinary);
     }
 
     const ffmpegStats = await fs.stat(ffmpegBinary);
     if (ffmpegStats.size === 0) {
       console.log('ffmpeg.exe está vacío, re-descargando...');
-      await fs.unlink(ffmpegBinary); // Eliminar el archivo vacío
+      await fs.unlink(ffmpegBinary); 
       await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg.exe', ffmpegBinary);
     }
 
     console.log('Binarios de yt-dlp y ffmpeg configurados:', ytDlpBinary, ffmpegBinary);
   } catch (e) {
     console.error('Error al configurar los binarios:', e);
-    // Mostrar un mensaje en la interfaz de usuario
     const resultsDiv = document.getElementById('results');
     if (resultsDiv) {
       resultsDiv.innerHTML = `<p class="error">Error al descargar los binarios necesarios: ${e.message}. Por favor, verifica tu conexión a internet y las URLs de los binarios.</p>`;
@@ -324,7 +314,6 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
 
   console.log(`Iniciando descarga de ${title} - ${artists} desde ${url}`);
 
-  // Esperar hasta que yt-dlp esté disponible (lock)
   while (isYtDlpRunning) {
     console.log(`Esperando a que yt-dlp esté disponible para ${title} - ${artists}...`);
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -337,7 +326,6 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
     try {
       console.log(`Ejecutando yt-dlp (intento ${attempt + 1}/${maxRetries}) para ${title} - ${artists}...`);
 
-      // Usar child_process.spawn para ejecutar yt-dlp.exe
       const process = spawn(ytDlpBinary, [
         url,
         '--extract-audio',
@@ -348,7 +336,6 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
         '--verbose',
       ]);
 
-      // Capturar la salida en tiempo real
       let lastOutput = '';
       process.stdout.on('data', (data) => {
         lastOutput = data.toString();
@@ -360,18 +347,16 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
         console.log(`yt-dlp stderr: ${lastOutput}`);
       });
 
-      // Manejar el tiempo de espera manualmente
       const timeout = setTimeout(() => {
         console.error(`Tiempo de espera excedido para la descarga de ${title} - ${artists}. Última salida: ${lastOutput || 'No se recibió salida'}`);
         process.kill();
         isYtDlpRunning = false;
         resolve(null);
-      }, 300000); // 5 minutos de tiempo de espera
+      }, 300000);
 
-      // Promesa para esperar a que el proceso termine
       const result = await new Promise((resolve) => {
         process.on('close', async (code) => {
-          clearTimeout(timeout); // Cancelar el timeout si el proceso termina antes
+          clearTimeout(timeout); 
 
           if (code !== 0) {
             console.error(`yt-dlp terminó con código de error ${code}. Última salida: ${lastOutput || 'No se recibió salida'}`);
@@ -408,7 +393,7 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
       });
 
       if (result) {
-        return result; // Si la descarga fue exitosa, retornamos el filePath
+        return result; 
       }
 
       attempt++;
@@ -534,7 +519,7 @@ async function playPlaylist(playlistName) {
   resultsDiv.innerHTML = songs.map(song => `<p data-index="${songs.indexOf(song)}">${song.title} - <span>${song.artists}</span></p>`).join('');
   console.log('Procesando canciones en lotes...');
 
-  const { songQueue, startPlayback } = await processSongsInBatches(songs, 1); // Mantenemos batchSize en 1
+  const { songQueue, startPlayback } = await processSongsInBatches(songs, 1);
   let currentIndex = -1;
   let isPlayingFromQueue = true;
 
