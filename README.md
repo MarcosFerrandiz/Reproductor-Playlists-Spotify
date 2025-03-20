@@ -36,9 +36,11 @@ Antes de comenzar, asegúrate de tener instalado lo siguiente:
 #### 1. Clonar o Descargar el Repositorio
 
 **Opción 1: Clonar el Repositorio**  
-```bash
+  ```bash
 git clone https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify.git
 cd Reproductor-Playlists-Spotify
+```
+---
 
 **Opción 2: Descargar como ZIP**  
 1. Ve a [https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify](https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify).  
@@ -46,4 +48,6 @@ cd Reproductor-Playlists-Spotify
 3. Descomprime el archivo ZIP y navega a la carpeta descomprimida:  
    ```bash
    cd ruta/a/Reproductor-Playlists-Spotify
-4. En la carpeta del proyecto, ejecuta: "npm install"
+4. En la carpeta del proyecto, ejecuta:
+  ```bash
+npm install
