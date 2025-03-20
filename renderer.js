@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
@@ -7,8 +7,7 @@ const https = require('https');
 
 const isPackaged = process.env.NODE_ENV === 'production' || (typeof process !== 'undefined' && process.resourcesPath && process.resourcesPath.includes('app.asar'));
 
-// Definir la carpeta donde se guardarán los binarios (ruta estática)
-const binDir = path.join(os.homedir(), '.spotify-playlist-player', 'bin'); 
+const binDir = path.join(os.homedir(), '.spotify-playlist-player', 'bin');
 const tempDir = path.join(os.tmpdir(), 'spotify-playlist-player');
 let ytDlpBinary, ffmpegBinary;
 
@@ -24,12 +23,34 @@ let isYtDlpRunning = false;
   }
 })();
 
+async function findBrowserExecutable() {
+  const possiblePaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+    'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe',
+  ];
+
+  for (const browserPath of possiblePaths) {
+    try {
+      await fs.access(browserPath);
+      console.log(`Navegador encontrado: ${browserPath}`);
+      return browserPath;
+    } catch (e) {
+      console.log(`No se encontró navegador en: ${browserPath}`);
+    }
+  }
+
+  throw new Error('No se encontró ningún navegador compatible (Chrome, Edge o Firefox). Por favor, instala uno e intenta de nuevo.');
+}
+
 async function downloadFile(url, dest) {
   console.log(`Iniciando descarga de ${url} a ${dest}...`);
   return new Promise((resolve, reject) => {
     const file = require('fs').createWriteStream(dest);
     const request = https.get(url, (response) => {
-      // Manejar redirects manualmente
       if (response.statusCode === 301 || response.statusCode === 302) {
         const redirectUrl = response.headers.location;
         console.log(`Redirigiendo a: ${redirectUrl}`);
@@ -52,7 +73,7 @@ async function downloadFile(url, dest) {
 
       file.on('error', (err) => {
         console.error(`Error al escribir el archivo ${dest}:`, err);
-        require('fs').unlink(dest, () => {}); 
+        require('fs').unlink(dest, () => {});
         reject(err);
       });
     });
@@ -63,7 +84,6 @@ async function downloadFile(url, dest) {
       reject(err);
     });
 
-    // Tiempo de espera para la solicitud
     request.setTimeout(30000, () => {
       request.destroy();
       reject(new Error(`Tiempo de espera excedido al descargar ${url}`));
@@ -79,7 +99,7 @@ async function downloadFile(url, dest) {
     console.log('Ruta de binDir:', binDir);
 
     if (platform !== 'win32') {
-      console.error('Este programa solo es compatible con Windows, ya que los binarios para otros sistemas operativos no están disponibles.');
+      console.error('Este programa solo es compatible con Windows.');
       const resultsDiv = document.getElementById('results');
       if (resultsDiv) {
         resultsDiv.innerHTML = `<p class="error">Este programa solo es compatible con Windows. Los binarios para ${platform} no están disponibles.</p>`;
@@ -92,14 +112,15 @@ async function downloadFile(url, dest) {
 
     if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
       console.log('yt-dlp.exe no encontrado, descargando...');
-      await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp.exe', ytDlpBinary);
+      await downloadFile('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', ytDlpBinary);
     } else {
       console.log('yt-dlp.exe ya existe:', ytDlpBinary);
     }
 
     if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
       console.log('ffmpeg.exe no encontrado, descargando...');
-      await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg.exe', ffmpegBinary);
+      await downloadFile('https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip', ffmpegBinary);
+      // Nota: Esto descarga un ZIP, necesitarías descomprimirlo y mover ffmpeg.exe manualmente o agregar lógica para ello
     } else {
       console.log('ffmpeg.exe ya existe:', ffmpegBinary);
     }
@@ -107,15 +128,15 @@ async function downloadFile(url, dest) {
     const ytDlpStats = await fs.stat(ytDlpBinary);
     if (ytDlpStats.size === 0) {
       console.log('yt-dlp.exe está vacío, re-descargando...');
-      await fs.unlink(ytDlpBinary); 
-      await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/yt-dlp.exe', ytDlpBinary);
+      await fs.unlink(ytDlpBinary);
+      await downloadFile('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', ytDlpBinary);
     }
 
     const ffmpegStats = await fs.stat(ffmpegBinary);
     if (ffmpegStats.size === 0) {
       console.log('ffmpeg.exe está vacío, re-descargando...');
-      await fs.unlink(ffmpegBinary); 
-      await downloadFile('https://github.com/MarcosFerrandiz/Reproductor-Playlists-Spotify/releases/download/v1.0.0/ffmpeg.exe', ffmpegBinary);
+      await fs.unlink(ffmpegBinary);
+      await downloadFile('https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip', ffmpegBinary);
     }
 
     console.log('Binarios de yt-dlp y ffmpeg configurados:', ytDlpBinary, ffmpegBinary);
@@ -123,15 +144,16 @@ async function downloadFile(url, dest) {
     console.error('Error al configurar los binarios:', e);
     const resultsDiv = document.getElementById('results');
     if (resultsDiv) {
-      resultsDiv.innerHTML = `<p class="error">Error al descargar los binarios necesarios: ${e.message}. Por favor, verifica tu conexión a internet y las URLs de los binarios.</p>`;
+      resultsDiv.innerHTML = `<p class="error">Error al descargar los binarios necesarios: ${e.message}.</p>`;
     }
-    return;
   }
 })();
 
 async function getPlaylistSongs(playlistName) {
+  const browserExecutable = await findBrowserExecutable();
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: browserExecutable,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   const page = await browser.newPage();
@@ -192,8 +214,10 @@ async function getPlaylistSongs(playlistName) {
 }
 
 async function searchYouTube(song) {
+  const browserExecutable = await findBrowserExecutable();
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: browserExecutable,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   const page = await browser.newPage();
@@ -243,52 +267,8 @@ async function searchYouTube(song) {
     return video || '#';
   } catch (e) {
     console.error('Error buscando en YouTube:', e.message);
-    try {
-      const retryQuery = `${song.title} ${song.artists}`;
-      console.log('Reintentando búsqueda en YouTube para:', retryQuery);
-      const retryPage = await browser.newPage();
-      await retryPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      await retryPage.goto(`https://www.youtube.com/results?search_query=${encodeURIComponent(retryQuery)}`, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000,
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const captchaCheckRetry = await retryPage.evaluate(() => {
-        return document.querySelector('form#captcha-form') ? 'CAPTCHA detectado' : null;
-      });
-      if (captchaCheckRetry) {
-        console.log('CAPTCHA detectado en reintento para:', retryQuery);
-        await browser.close();
-        return '#';
-      }
-
-      await retryPage.waitForSelector('a#video-title', { timeout: 30000 });
-      const video = await retryPage.evaluate(() => {
-        const videos = Array.from(document.querySelectorAll('a#video-title'));
-        for (const video of videos) {
-          const href = video.getAttribute('href');
-          const isAd = video.closest('ytd-promoted-video-renderer') || video.closest('ytd-ad-slot-renderer');
-          if (!isAd && href) {
-            const title = video.textContent.trim();
-            const channelElement = video.closest('ytd-video-renderer')?.querySelector('yt-formatted-string');
-            const channel = channelElement ? channelElement.textContent.trim() : 'desconocido';
-            console.log(`Primer video encontrado (reintento) - Título: ${title}, Canal: ${channel}, URL: https://www.youtube.com${href}`);
-            return `https://www.youtube.com${href}`;
-          }
-        }
-        console.log('No se encontró ningún video válido (sin anuncios) en reintento para:', retryQuery);
-        return null;
-      });
-
-      console.log('URL de YouTube scrapeada (reintento):', video || 'No se encontró video');
-      await browser.close();
-      return video || '#';
-    } catch (retryError) {
-      console.error('Reintento falló:', retryError.message);
-      await browser.close();
-      return '#';
-    }
+    await browser.close();
+    return '#';
   }
 }
 
@@ -296,43 +276,38 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
   const fileName = `${title} - ${artists}`.replace(/[^a-zA-Z0-9]/g, '_');
   const filePath = path.join(tempDir, `${fileName}.mp3`);
 
-  if (url === '#') {
-    console.log(`No se descargará ${title} - ${artists}: URL inválida`);
+  if (!url.startsWith('https://www.youtube.com/')) {
+    console.log(`URL inválida para ${title} - ${artists}: ${url}`);
     return null;
   }
 
-  // Verificar que los binarios existan antes de intentar usarlos
   if (!(await fs.access(ytDlpBinary).then(() => true).catch(() => false))) {
-    console.error(`El binario yt-dlp.exe no existe en: ${ytDlpBinary}`);
+    console.error(`yt-dlp.exe no encontrado en: ${ytDlpBinary}`);
     return null;
   }
 
   if (!(await fs.access(ffmpegBinary).then(() => true).catch(() => false))) {
-    console.error(`El binario ffmpeg.exe no existe en: ${ffmpegBinary}`);
+    console.error(`ffmpeg.exe no encontrado en: ${ffmpegBinary}`);
     return null;
   }
 
-  console.log(`Iniciando descarga de ${title} - ${artists} desde ${url}`);
+  console.log(`Descargando ${title} - ${artists} desde ${url}`);
 
   while (isYtDlpRunning) {
-    console.log(`Esperando a que yt-dlp esté disponible para ${title} - ${artists}...`);
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   isYtDlpRunning = true;
 
-  let attempt = 0;
-  while (attempt < maxRetries) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      console.log(`Ejecutando yt-dlp (intento ${attempt + 1}/${maxRetries}) para ${title} - ${artists}...`);
-
       const process = spawn(ytDlpBinary, [
         url,
         '--extract-audio',
         '--audio-format', 'mp3',
         '-o', filePath,
         '--ffmpeg-location', ffmpegBinary,
-        '--ignore-errors',
+        '--no-playlist',
         '--verbose',
       ]);
 
@@ -344,41 +319,38 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
 
       process.stderr.on('data', (data) => {
         lastOutput = data.toString();
-        console.log(`yt-dlp stderr: ${lastOutput}`);
+        console.error(`yt-dlp stderr: ${lastOutput}`);
       });
 
       const timeout = setTimeout(() => {
-        console.error(`Tiempo de espera excedido para la descarga de ${title} - ${artists}. Última salida: ${lastOutput || 'No se recibió salida'}`);
         process.kill();
+        console.error(`Tiempo excedido para ${title} - ${artists}`);
         isYtDlpRunning = false;
-        resolve(null);
       }, 300000);
 
       const result = await new Promise((resolve) => {
         process.on('close', async (code) => {
-          clearTimeout(timeout); 
-
+          clearTimeout(timeout);
           if (code !== 0) {
-            console.error(`yt-dlp terminó con código de error ${code}. Última salida: ${lastOutput || 'No se recibió salida'}`);
+            console.error(`yt-dlp falló con código ${code}. Salida: ${lastOutput}`);
+            if (lastOutput.includes('unavailable') || lastOutput.includes('not found')) {
+              console.error(`El video no está disponible: ${url}`);
+            } else if (lastOutput.includes('ffmpeg')) {
+              console.error(`Problema con ffmpeg. Verifica la ruta: ${ffmpegBinary}`);
+            }
             isYtDlpRunning = false;
             resolve(null);
             return;
           }
 
-          try {
-            const stats = await fs.stat(filePath);
-            if (stats.size > 0) {
-              console.log(`Descargado exitosamente: ${filePath}, tamaño: ${stats.size}`);
-              isYtDlpRunning = false;
-              resolve(filePath);
-            } else {
-              await fs.unlink(filePath).catch(() => {});
-              console.log(`Archivo vacío: ${filePath}`);
-              isYtDlpRunning = false;
-              resolve(null);
-            }
-          } catch (e) {
-            console.error(`Error verificando archivo ${filePath}:`, e);
+          const stats = await fs.stat(filePath);
+          if (stats.size > 0) {
+            console.log(`Descarga exitosa: ${filePath}`);
+            isYtDlpRunning = false;
+            resolve(filePath);
+          } else {
+            await fs.unlink(filePath).catch(() => {});
+            console.error(`Archivo vacío: ${filePath}`);
             isYtDlpRunning = false;
             resolve(null);
           }
@@ -386,37 +358,26 @@ async function downloadSong(title, artists, url, maxRetries = 3, retryDelay = 20
 
         process.on('error', (err) => {
           clearTimeout(timeout);
-          console.error(`Error ejecutando yt-dlp para ${title} - ${artists}:`, err);
+          console.error(`Error ejecutando yt-dlp: ${err}`);
           isYtDlpRunning = false;
           resolve(null);
         });
       });
 
-      if (result) {
-        return result; 
-      }
+      if (result) return result;
 
-      attempt++;
-      if (attempt < maxRetries) {
-        console.log(`Reintentando (${attempt}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
+      console.log(`Reintentando (${attempt + 1}/${maxRetries})...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
     } catch (e) {
-      attempt++;
-      console.error(`Error ejecutando yt-dlp para ${title} - ${artists}:`, e);
-      if (attempt < maxRetries) {
-        console.log(`Reintentando (${attempt}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      } else {
-        console.error(`Fallo después de ${maxRetries} intentos: ${e.message}`);
-        await fs.unlink(filePath).catch(() => {});
+      console.error(`Error en intento ${attempt + 1}: ${e}`);
+      if (attempt === maxRetries - 1) {
         isYtDlpRunning = false;
         return null;
       }
     }
   }
 
-  console.error(`No se pudo descargar ${title} - ${artists} después de ${maxRetries} intentos.`);
+  console.error(`Falló tras ${maxRetries} intentos`);
   isYtDlpRunning = false;
   return null;
 }
@@ -533,7 +494,7 @@ async function playPlaylist(playlistName) {
   }
 
   function renderSongList() {
-    resultsDiv.innerHTML = songQueue.map((song, index) => 
+    resultsDiv.innerHTML = songQueue.map((song, index) =>
       `<p data-index="${index}" class="${index === currentIndex ? 'selected' : ''}">${song.title} - <span>${song.artists}</span></p>`
     ).join('');
     assignClickEvents();
